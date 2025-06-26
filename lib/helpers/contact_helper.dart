@@ -1,15 +1,12 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-// Nomes das colunas existentes
 final String contactTable = "contactTable";
 final String idCollun = "idCollun";
 final String nameCollun = "nameCollun";
 final String phoneCollun = "phoneCollun";
 final String emailCollun = "emailCollun";
 final String imgCollun = "imgCollun";
-
-// Novos campos
 final String cepCollun = "cepCollun";
 final String cidadeCollun = "cidadeCollun";
 final String bairroCollun = "bairroCollun";
@@ -146,7 +143,6 @@ class Contact {
   String? phone;
   String? email;
   String? img;
-  // Novos campos
   String? cep;
   String? cidade;
   String? bairro;
@@ -161,7 +157,6 @@ class Contact {
     phone = map[phoneCollun] as String?;
     email = map[emailCollun] as String?;
     img = map[imgCollun] as String?;
-    // Inicializando os novos campos
     cep = map[cepCollun] as String?;
     cidade = map[cidadeCollun] as String?;
     bairro = map[bairroCollun] as String?;

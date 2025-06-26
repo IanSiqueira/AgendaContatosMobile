@@ -4,6 +4,16 @@ import 'package:agendamobile/helpers/contact_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+
+
+var maskFormatter = new MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy
+);
 
 class ContactPage extends StatefulWidget {
   final Contact? contact;
@@ -16,13 +26,13 @@ class ContactPage extends StatefulWidget {
 class _ContactPageState extends State<ContactPage> {
   final ImagePicker _picker = ImagePicker();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _cepController = TextEditingController();
   final TextEditingController _cidadeController = TextEditingController();
   final TextEditingController _bairroController = TextEditingController();
   final TextEditingController _enderecoController = TextEditingController();
   final TextEditingController _numeroController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   late Contact _editedContact;
   late String _appBarTitle;
@@ -94,17 +104,18 @@ class _ContactPageState extends State<ContactPage> {
                     _pickImageFromSource(ImageSource.camera);
                   },
                 ),
-                ListTile(
-                  leading: const Icon(Icons.delete),
-                  title: const Text("Remover imagem"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _editedContact.img = null;
-                      _userEdited = true;
-                    });
-                  },
-                ),
+                if (_editedContact.img != null)
+                  ListTile(
+                    leading: const Icon(Icons.delete),
+                    title: const Text("Remover imagem"),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        _editedContact.img = null;
+                        _userEdited = true;
+                      });
+                    },
+                  ),
               ],
             ),
           ),
@@ -112,6 +123,7 @@ class _ContactPageState extends State<ContactPage> {
       },
     );
   }
+
 
   Future<void> _pickImageFromSource(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(source: source);
@@ -187,13 +199,67 @@ class _ContactPageState extends State<ContactPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(_appBarTitle),
-          backgroundColor: Colors.blue,
+          backgroundColor: Colors.blueGrey[900],
           centerTitle: true,
+          actions: [
+            if (_editedContact.id != null &&
+                (_editedContact.phone?.isNotEmpty ?? false))
+              IconButton(
+                icon: const Icon(Icons.phone),
+                tooltip: 'Ligar',
+                onPressed: () async {
+                  final uri = Uri(scheme: 'tel', path: _editedContact.phone);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Não foi possível iniciar a chamada.")),
+                    );
+                  }
+                },
+              ),
+          ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _saveContact,
-          child: const Icon(Icons.save),
-          backgroundColor: Colors.blue,
+        floatingActionButton: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (_editedContact.id != null)
+              FloatingActionButton(
+                heroTag: 'deleteButton',
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Excluir contato'),
+                      content: const Text('Tem certeza que deseja excluir este contato?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await helper.deleteContact(_editedContact.id!);
+                    Navigator.pop(context); // volta para a lista após excluir
+                  }
+                },
+                backgroundColor: Colors.red[800],
+                child: const Icon(Icons.delete),
+              ),
+            const SizedBox(width: 16),
+            FloatingActionButton(
+              heroTag: 'saveButton',
+              onPressed: _saveContact,
+              child: const Icon(Icons.save),
+              backgroundColor: Colors.blueGrey[900],
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(10.0),
@@ -209,7 +275,7 @@ class _ContactPageState extends State<ContactPage> {
                     image: DecorationImage(
                       image: _editedContact.img != null
                           ? FileImage(File(_editedContact.img!))
-                          : const AssetImage("images/pessoaPadrao.png") as ImageProvider,
+                          : const AssetImage("images/pessoaPadraoWhiteMode.png") as ImageProvider,
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -231,13 +297,14 @@ class _ContactPageState extends State<ContactPage> {
                   _userEdited = true;
                 },
               ),
-              TextField(
-                controller: _phoneController,
-                decoration: const InputDecoration(labelText: "Telefone"),
-                keyboardType: TextInputType.phone,
-                onChanged: (text) {
-                  _userEdited = true;
-                },
+            TextField(
+              controller: _phoneController,
+              decoration: const InputDecoration(labelText: "Telefone"),
+              keyboardType: TextInputType.phone,
+              inputFormatters: [maskFormatter],
+              onChanged: (text) {
+                _userEdited = true;
+              },
               ),
               TextField(
                 controller: _cepController,

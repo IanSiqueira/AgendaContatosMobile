@@ -1,118 +1,114 @@
+// lib/ui/home_page.dart
 import 'dart:io';
 import 'package:agendamobile/helpers/contact_helper.dart';
 import 'package:agendamobile/ui/contact_page.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+String formatPhone(String phone) {
+  final d = phone.replaceAll(RegExp(r'\D'), '');
+  if (d.length == 11) {
+    return '(${d.substring(0,2)}) ${d.substring(2,7)}-${d.substring(7)}';
+  }
+  return phone;
+}
+
 enum OrderOptions { orderaz, orderza }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  ContactHelper helper = ContactHelper();
-  List<Contact> contacts = <Contact>[];
+  final helper = ContactHelper();
+  List<Contact> contacts = [];
 
   @override
   void initState() {
     super.initState();
-    _getAllContacts();
+    _reload();
+  }
+
+  void _reload() async {
+    final list = await helper.getAllContacts();
+    setState(() => contacts = list);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext c) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Contatos"),
-        backgroundColor: Colors.blue,
+        title: const Text('Contatos'),
+        backgroundColor: Colors.blueGrey[900],
         centerTitle: true,
-        actions: <Widget>[
+        actions: [
           PopupMenuButton<OrderOptions>(
-            onSelected: _orderList,
-            itemBuilder: (context) => <PopupMenuEntry<OrderOptions>>[
-              const PopupMenuItem<OrderOptions>(
-                child: Text("Ordenar de A - Z"),
-                value: OrderOptions.orderaz,
-              ),
-              const PopupMenuItem<OrderOptions>(
-                child: Text("Ordenar de Z - A"),
-                value: OrderOptions.orderza,
-              ),
+            onSelected: _order,
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: OrderOptions.orderaz,
+                  child: Text('Ordenar A→Z')),
+              PopupMenuItem(
+                  value: OrderOptions.orderza,
+                  child: Text('Ordenar Z→A')),
             ],
           ),
         ],
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showContactPage();
-        },
+        onPressed: () => _openContact(),
         child: const Icon(Icons.add),
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.blueGrey[900],
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(10),
         itemCount: contacts.length,
-        itemBuilder: (context, index) {
-          return _contactCard(context, index);
-        },
+        itemBuilder: (_, i) => _card(i),
       ),
     );
   }
 
-  Widget _contactCard(BuildContext context, int index) {
-    final contact = contacts[index];
+  Widget _card(int i) {
+    final ct = contacts[i];
     return GestureDetector(
-      onTap: () {
-        _showContactPage(contact: contact);
-      },
-      onLongPress: () {
-        _showOptions(context, index);
-      },
+      onTap: () => _openContact(ct),
+      onLongPress: () => _options(i),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(10.0),
+          padding: const EdgeInsets.all(10),
           child: Row(
-            children: <Widget>[
+            children: [
               Container(
-                width: 80.0,
-                height: 80.0,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: contact.img != null
-                        ? FileImage(File(contact.img!))
-                        : const AssetImage("images/pessoaPadrao.png")
+                    image: ct.img != null
+                        ? FileImage(File(ct.img!))
+                        : const AssetImage('images/pessoaPadraoWhiteMode.png')
                     as ImageProvider,
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
-              const SizedBox(width: 10.0),
+              const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    contact.name ?? "",
-                    style: const TextStyle(
-                        fontSize: 22.0, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    contact.email ?? "",
-                    style: const TextStyle(
-                        fontSize: 18.0, fontWeight: FontWeight.normal),
-                  ),
-                  Text(
-                    contact.phone ?? "",
-                    style: const TextStyle(
-                        fontSize: 18.0, fontWeight: FontWeight.normal),
-                  )
+                children: [
+                  Text(ct.name ?? '',
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(ct.email ?? '',
+                      style: const TextStyle(fontSize: 18)),
+                  Text(formatPhone(ct.phone ?? ''),
+                      style: const TextStyle(fontSize: 18)),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -120,116 +116,63 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showOptions(BuildContext context, int index) {
+  void _options(int i) {
     showModalBottomSheet(
       context: context,
-      builder: (context) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(10.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _callContact(contacts[index].phone);
-                  },
-                  child: const Text(
-                    "Ligar",
-                    style: TextStyle(color: Colors.red, fontSize: 20.0),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showContactPage(contact: contacts[index]);
-                  },
-                  child: const Text(
-                    "Editar",
-                    style: TextStyle(color: Colors.blue, fontSize: 20.0),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _deleteContact(index);
-                  },
-                  child: const Text(
-                    "Excluir",
-                    style: TextStyle(color: Colors.black, fontSize: 20.0),
-                  ),
-                ),
-              ),
-            ],
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _call(contacts[i].phone);
+            },
+            child:
+            const Text('Ligar', style: TextStyle(color: Colors.green)),
           ),
-        );
-      },
-    );
-  }
-
-  void _callContact(String? phone) async {
-    if (phone == null || phone.isEmpty) return;
-    final Uri launchUri = Uri(scheme: 'tel', path: phone);
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
-      print("Não foi possível realizar a chamada para $phone");
-    }
-  }
-
-  void _deleteContact(int index) {
-    final Contact contact = contacts[index];
-    helper.deleteContact(contact.id!).then((_) {
-      setState(() {
-        contacts.removeAt(index);
-      });
-    });
-  }
-
-  void _showContactPage({Contact? contact}) async {
-    final recContact = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ContactPage(contact: contact),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _openContact(contacts[i]);
+            },
+            child:
+            const Text('Editar', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              helper.deleteContact(contacts[i].id!).then((_) => _reload());
+            },
+            child:
+            const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
-    if (recContact != null) {
-      _getAllContacts();
-    }
   }
 
-  void _getAllContacts() {
-    helper.getAllContacts().then((list) {
-      setState(() {
-        contacts = list;
-      });
+  void _call(String? phone) async {
+    if (phone == null || phone.isEmpty) return;
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  void _openContact([Contact? ct]) async {
+    final res = await Navigator.push<Contact?>(
+      context,
+      MaterialPageRoute(builder: (_) => ContactPage(contact: ct)),
+    );
+    if (res != null) _reload();
+  }
+
+  void _order(OrderOptions opt) {
+    contacts.sort((a, b) {
+      final na = a.name?.toLowerCase() ?? '';
+      final nb = b.name?.toLowerCase() ?? '';
+      return opt == OrderOptions.orderaz
+          ? na.compareTo(nb)
+          : nb.compareTo(na);
     });
-  }
-
-  void _orderList(OrderOptions result) {
-    switch (result) {
-      case OrderOptions.orderaz:
-        contacts.sort((a, b) {
-          return (a.name?.toLowerCase() ?? '')
-              .compareTo(b.name?.toLowerCase() ?? '');
-        });
-        break;
-      case OrderOptions.orderza:
-        contacts.sort((a, b) {
-          return (b.name?.toLowerCase() ?? '')
-              .compareTo(a.name?.toLowerCase() ?? '');
-        });
-        break;
-    }
     setState(() {});
   }
 }
